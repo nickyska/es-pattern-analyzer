@@ -1,0 +1,14 @@
+package com.elasticsearch.plugin.analysis.pattern;
+
+import org.elasticsearch.index.analysis.AnalysisModule;
+
+import com.elasticsearch.plugin.tokenizer.PatternKeyTokenizerFactory;
+
+public class PatternKeyTokenizerProcessor extends AnalysisModule.AnalysisBinderProcessor {
+
+	@Override
+	public void processTokenizers(TokenizersBindings tokenizersBindings) {
+		tokenizersBindings.processTokenizer(PatternKeyTokenizerPlugin.TOKEN_INDEX_PATTERN, PatternKeyTokenizerFactory.class);
+	}
+
+}

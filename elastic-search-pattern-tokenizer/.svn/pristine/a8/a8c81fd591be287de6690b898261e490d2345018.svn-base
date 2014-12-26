@@ -1,0 +1,106 @@
+package com.elasticsearch.plugin.tokenizer;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.apache.lucene.analysis.Tokenizer;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
+
+public final class PatternKeyTokenizer extends Tokenizer {
+
+	private final CharTermAttribute termAtt = (CharTermAttribute) addAttribute(CharTermAttribute.class);
+	private final OffsetAttribute offsetAtt = (OffsetAttribute) addAttribute(OffsetAttribute.class);
+
+	private final StringBuilder str = new StringBuilder();
+
+	private int index;
+	private final int group;
+	private final Matcher matcher;
+
+	public PatternKeyTokenizer(Reader reader, Pattern pattern, int group) {
+		super(reader);
+		this.group = group;
+
+		this.matcher = pattern.matcher("");
+
+		if ((group >= 0) && (group > this.matcher.groupCount())) {
+			throw new IllegalArgumentException(
+					"invalid group specified: pattern only has: "
+							+ this.matcher.groupCount() + " capturing groups");
+		}
+
+	}
+
+	public boolean incrementToken() {
+		if (this.index >= this.str.length())
+			return false;
+		clearAttributes();
+		String pattern = matcher.pattern().pattern();
+		
+		if (this.group >= 0) {
+
+			while (this.matcher.find()) {
+				this.index = this.matcher.start(this.group);
+				int endIndex = this.matcher.end(this.group);
+				if (this.index != endIndex) {
+					this.termAtt.setEmpty().append(pattern);
+					this.offsetAtt.setOffset(correctOffset(this.index),
+							correctOffset(endIndex));
+					return true;
+				}
+			}
+			this.index = Integer.MAX_VALUE;
+			return false;
+		}
+
+		while (this.matcher.find()) {
+			if (this.matcher.start() - this.index > 0) {
+				this.termAtt.setEmpty().append(pattern);
+				this.offsetAtt.setOffset(correctOffset(this.index),
+						correctOffset(this.matcher.start()));
+				this.index = this.matcher.end();
+				return true;
+			}
+
+			this.index = this.matcher.end();
+		}
+
+		if (this.str.length() - this.index == 0) {
+			this.index = Integer.MAX_VALUE;
+			return false;
+		}
+
+		this.termAtt.setEmpty().append(pattern);
+		this.offsetAtt.setOffset(correctOffset(this.index),
+				correctOffset(this.str.length()));
+		this.index = Integer.MAX_VALUE;
+		return true;
+	}
+
+	public void end() throws IOException {
+		super.end();
+		int ofs = correctOffset(this.str.length());
+		this.offsetAtt.setOffset(ofs, ofs);
+	}
+
+	public void reset() throws IOException {
+		super.reset();
+		fillBuffer(this.str, this.input);
+		this.matcher.reset(this.str);
+		this.index = 0;
+	}
+
+	final char[] buffer = new char['?'];
+
+	private void fillBuffer(StringBuilder sb, Reader input) throws IOException {
+		sb.setLength(0);
+		int len;
+		while ((len = input.read(this.buffer)) > 0) {
+			sb.append(this.buffer, 0, len);
+		}
+	}
+
+}

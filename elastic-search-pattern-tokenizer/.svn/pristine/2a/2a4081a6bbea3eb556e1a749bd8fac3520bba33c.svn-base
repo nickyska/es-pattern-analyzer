@@ -1,0 +1,41 @@
+package com.elasticsearch.plugin.tokenizer;
+
+import java.io.Reader;
+import java.util.regex.Pattern;
+
+import org.apache.lucene.analysis.Tokenizer;
+import org.elasticsearch.ElasticsearchIllegalArgumentException;
+import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.inject.assistedinject.Assisted;
+import org.elasticsearch.common.regex.Regex;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.Index;
+import org.elasticsearch.index.analysis.PatternTokenizerFactory;
+import org.elasticsearch.index.settings.IndexSettings;
+
+public class PatternKeyTokenizerFactory extends	PatternTokenizerFactory {
+
+	private Pattern pattern;
+	private int group;
+
+	@Inject
+    public PatternKeyTokenizerFactory(Index index, @IndexSettings Settings indexSettings, @Assisted String name, @Assisted Settings settings) {
+        super(index, indexSettings, name, settings);
+
+        String sPattern = settings.get("pattern", "\\W+" /*PatternAnalyzer.NON_WORD_PATTERN*/);
+        if (sPattern == null) {
+            throw new ElasticsearchIllegalArgumentException("pattern is missing for [" + name + "] tokenizer of type 'pattern'");
+        }
+
+        this.pattern = Regex.compile(sPattern, settings.get("flags"));
+        this.group = settings.getAsInt("group", -1);
+    }
+
+    @Override
+    public Tokenizer create(Reader reader) {
+		return new PatternKeyTokenizer(reader, pattern, group);
+    }
+
+
+
+}

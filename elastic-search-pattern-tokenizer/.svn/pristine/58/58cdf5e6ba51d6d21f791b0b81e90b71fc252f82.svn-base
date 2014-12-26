@@ -1,0 +1,148 @@
+package com.elasticsearch.plugin.tokenizer;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.util.List;
+import java.util.regex.Matcher;
+
+import org.apache.lucene.analysis.Tokenizer;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
+
+public final class PatternKeyTokenizer extends Tokenizer {
+
+	private final CharTermAttribute termAtt = (CharTermAttribute) addAttribute(CharTermAttribute.class);
+	private final OffsetAttribute offsetAtt = (OffsetAttribute) addAttribute(OffsetAttribute.class);
+
+	private final StringBuilder str = new StringBuilder();
+	
+	private StringBuilder patternStringBuilder = new StringBuilder();
+
+
+	private int index;
+	private final int group;
+
+	private  List<TokenizerPattern> patternsList;
+
+	public PatternKeyTokenizer(Reader reader, List<TokenizerPattern> patternsList, int group) {
+		super(reader);
+		this.group = group;
+		this.patternsList = patternsList;
+
+
+		validateGroup(patternsList, group);
+
+	}
+
+
+	private void validateGroup(List<TokenizerPattern> patternsList,int group) {
+
+		for (TokenizerPattern tokenizerPattern : patternsList) {
+
+			Matcher matcher = tokenizerPattern.getMatcher();
+
+			if ((group >= 0) && (group > matcher.groupCount())) {
+				throw new IllegalArgumentException(
+						"invalid group specified: pattern only has: "
+								+ matcher.groupCount() + " capturing groups");
+			}
+		}
+
+	}
+
+
+	public boolean incrementToken() {
+		if (this.index >= this.str.length())
+			return false;
+		clearAttributes();
+		
+		patternStringBuilder.setLength(this.str.length());
+
+		if (this.group >= 0) {
+
+			for (TokenizerPattern tokenizerPatternObj : patternsList) {
+
+				Matcher matcher = tokenizerPatternObj.getMatcher();
+				String patternName = tokenizerPatternObj.getPatternName();
+
+				while (matcher.find()) {
+					this.index = matcher.start(this.group);
+					int endIndex = matcher.end(this.group);
+					if (this.index != endIndex) {
+						this.termAtt.setEmpty().append(patternName);
+						this.offsetAtt.setOffset(0, patternName.length());
+						return true;
+					}
+				}
+			}
+			this.index = Integer.MAX_VALUE;
+			return false;
+		}
+
+		for (TokenizerPattern tokenizerPatternObj : patternsList) {
+
+			Matcher matcher = tokenizerPatternObj.getMatcher();
+			String patternName = tokenizerPatternObj.getPatternName();
+			
+			while (matcher.find()) {
+				if (matcher.start() - this.index > 0) {
+					
+					patternStringBuilder.insert(matcher.start(), patternName);
+					
+					 termAtt.setEmpty().append(patternStringBuilder, index, matcher.start());
+			         offsetAtt.setOffset(correctOffset(index), correctOffset(matcher.start()));
+					this.index = matcher.end();
+					return true;
+				}
+
+				this.index = matcher.end();
+			}
+		}
+
+		if (this.str.length() - this.index == 0) {
+			this.index = Integer.MAX_VALUE;
+			return false;
+		}
+
+//		for (TokenizerPattern tokenizerPatternObj : patternsList) {
+//			
+//			String patternName = tokenizerPatternObj.getPatternName();
+//			this.termAtt.setEmpty().append(patternName);
+//			this.offsetAtt.setOffset(0, patternName.length());
+//			this.index = Integer.MAX_VALUE;
+//		}
+		return true;
+	}
+
+	public void end() throws IOException {
+		super.end();
+		int ofs = correctOffset(this.str.length());
+		this.offsetAtt.setOffset(ofs, ofs);
+	}
+
+	public void reset() throws IOException {
+		super.reset();
+		fillBuffer(this.str, this.input);
+		resetMacthers();
+		this.index = 0;
+	}
+
+
+	private void resetMacthers() {
+		
+		for (TokenizerPattern tokenizerPatternObj : patternsList) {
+			tokenizerPatternObj.getMatcher().reset(this.str);
+		}
+	}
+
+	final char[] buffer = new char['?'];
+
+	private void fillBuffer(StringBuilder sb, Reader input) throws IOException {
+		sb.setLength(0);
+		int len;
+		while ((len = input.read(this.buffer)) > 0) {
+			sb.append(this.buffer, 0, len);
+		}
+	}
+
+}

@@ -1,0 +1,29 @@
+package com.elasticsearch.plugin.tokenizer;
+
+import java.util.regex.Matcher;
+
+public class TokenizerPattern {
+	
+	private Matcher matcher;
+	
+	private String patternName;
+
+	public Matcher getMatcher() {
+		return matcher;
+	}
+
+	public String getPatternName() {
+		return patternName;
+	}
+
+	public TokenizerPattern(Matcher matcher, String patternName) {
+		super();
+		this.matcher = matcher;
+		this.patternName = patternName;
+	}
+
+	
+	
+	
+
+}

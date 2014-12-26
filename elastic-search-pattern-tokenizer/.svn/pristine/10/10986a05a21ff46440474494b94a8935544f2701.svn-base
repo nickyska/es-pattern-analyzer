@@ -1,0 +1,71 @@
+package com.elasticsearch.plugin.tokenizer;
+
+import java.io.Reader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.apache.lucene.analysis.Tokenizer;
+import org.elasticsearch.ElasticsearchIllegalArgumentException;
+import org.elasticsearch.common.collect.ImmutableSet;
+import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.inject.assistedinject.Assisted;
+import org.elasticsearch.common.regex.Regex;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.Index;
+import org.elasticsearch.index.analysis.PatternTokenizerFactory;
+import org.elasticsearch.index.settings.IndexSettings;
+
+public class PatternKeyTokenizerFactory extends	PatternTokenizerFactory {
+
+	private int group;
+	private List<TokenizerPattern> patternsList;
+
+	@Inject
+	public PatternKeyTokenizerFactory(Index index, @IndexSettings Settings indexSettings, @Assisted String name, @Assisted Settings settings) {
+		super(index, indexSettings, name, settings);
+
+		String sPattern = settings.get("pattern", "\\W+" /*PatternAnalyzer.NON_WORD_PATTERN*/);
+		if (sPattern == null) {
+			throw new ElasticsearchIllegalArgumentException("pattern is missing for [" + name + "] tokenizer of type 'pattern'");
+		}
+
+		Settings patterns = settings.getByPrefix("patterns.");
+		Settings patternNames = settings.getByPrefix("patternNames.");
+
+		this.group = settings.getAsInt("group", -1);
+
+		patternsList = createPatterns(patterns,patternNames, settings);
+
+	}
+
+	private List<TokenizerPattern> createPatterns(Settings patterns,Settings patternNames,Settings settings) {
+		
+		List<TokenizerPattern> patternsList = new ArrayList<>();
+
+		ImmutableSet<Entry<String, String>> patternsEntrySet = patterns.getAsMap().entrySet();
+		
+		for (Entry<String, String> entry : patternsEntrySet) {
+			String patternKey = entry.getKey();
+			String patternValue = entry.getValue();
+			
+			Pattern pattern = Regex.compile(patternValue, settings.get("flags"));
+			Matcher matcher = pattern.matcher("");
+			
+			patternsList.add(new TokenizerPattern(matcher, patternNames.get(patternKey)));
+		}
+		
+		return patternsList;
+	}
+
+
+	@Override
+	public Tokenizer create(Reader reader) {
+		return new PatternKeyTokenizer(reader,patternsList,group);
+	}
+
+
+
+}

@@ -1,0 +1,24 @@
+package com.elasticsearch.plugin.analysis.pattern;
+
+import org.elasticsearch.index.analysis.AnalysisModule;
+import org.elasticsearch.plugins.AbstractPlugin;
+
+public class PatternKeyTokenizerPlugin extends AbstractPlugin {
+
+	private static final String PATTERN_AS_A_KEY_SUPPORT = "Pattern as a key support";
+	public static final String TOKEN_INDEX_PATTERN = "Pattern-Key";
+
+	@Override
+	public String name() {
+		return TOKEN_INDEX_PATTERN;
+	}
+
+	@Override
+	public String description() {
+		return PATTERN_AS_A_KEY_SUPPORT;
+	}
+
+	public void onModule(AnalysisModule module) {
+        module.addProcessor(new PatternKeyTokenizerProcessor());
+    }
+}
