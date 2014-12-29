@@ -1,6 +1,10 @@
 es-pattern-analyzer
 ===================
 
+Custom ElasticSearch analyzer and custom ElasticSearch tokenizer plugin
+Plugin name - Pattern-as-Key-Pluging
+
+
 This pluging for ES extends lucine PatternTokenizer.
 Instead of indexing TERMS it will index patterns.
 
